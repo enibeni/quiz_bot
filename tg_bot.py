@@ -61,10 +61,6 @@ def handle_kapitulation(bot, update):
     return States.QUESTION
 
 
-def error(bot, update, error):
-    logger.warning('Update "%s" caused error "%s"', update, error)
-
-
 def main():
     updater = Updater(os.getenv("TG_TOKEN_QUIZ_BOT"))
     dp = updater.dispatcher
@@ -86,7 +82,6 @@ def main():
         fallbacks=[RegexHandler('^Сдаться$', handle_kapitulation)]
     )
     dp.add_handler(conv_handler)
-    dp.add_error_handler(error)
     updater.start_polling()
     updater.idle()
 
