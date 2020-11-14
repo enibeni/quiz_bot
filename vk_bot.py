@@ -1,6 +1,5 @@
 import os
 import random
-import logging
 import redis
 import vk_api
 from vk_api.longpoll import VkLongPoll, VkEventType
@@ -8,11 +7,6 @@ from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 from dotenv import load_dotenv
 from quiz_helper import get_quiz_data, check_is_right_answer
 
-
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    level=logging.INFO)
-
-logger = logging.getLogger(__name__)
 
 load_dotenv()
 
