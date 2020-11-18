@@ -1,29 +1,21 @@
 import os
 from enum import Enum
 from random import choice
-from dotenv import load_dotenv
 from telegram import ReplyKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, RegexHandler
-import redis
 from quiz_helper import get_quiz_data, check_is_right_answer
+from redis_helper import RedisHelper
 
-
-load_dotenv()
-
-redis_db = redis.Redis(
-        host=os.getenv("REDIS_DB_HOST"),
-        port=os.getenv("REDIS_DB_PORT"),
-        db=0,
-        password=os.getenv("REDIS_DB_PASSWORD"),
-        charset="KOI8-R",
-        decode_responses=True,
+REPLY_MARKUP = ReplyKeyboardMarkup(
+    [['Новый вопрос', 'Сдаться'],
+     ['Мой счет']]
 )
 
-custom_keyboard = [['Новый вопрос', 'Сдаться'],
-                   ['Мой счет']]
-reply_markup = ReplyKeyboardMarkup(custom_keyboard)
+QUIZ_DATA = get_quiz_data()
 
-quiz_data = get_quiz_data()
+REDIS_DB = RedisHelper().connection
+
+DB_USER_PREFIX = "tg-"
 
 
 class States(Enum):
@@ -33,31 +25,31 @@ class States(Enum):
 
 
 def start(bot, update):
-    update.message.reply_text('Привет, я бот для викторин!', reply_markup=reply_markup)
+    update.message.reply_text('Привет, я бот для викторин!', reply_markup=REPLY_MARKUP)
     return States.QUESTION
 
 
 def handle_new_question_request(bot, update):
-    question = choice(list(quiz_data.keys()))
-    redis_db.set(update.message.chat_id, question)
-    update.message.reply_text(text=question, reply_markup=reply_markup)
+    question = choice(list(QUIZ_DATA.keys()))
+    REDIS_DB.set(f"{DB_USER_PREFIX}{update.message.chat_id}", question)
+    update.message.reply_text(text=question, reply_markup=REPLY_MARKUP)
     return States.ANSWER
 
 
 def handle_solution_attempt(bot, update):
-    user_question = redis_db.get(update.message.chat_id)
+    user_question = REDIS_DB.get(update.message.chat_id)
     user_answer = update.message.text
-    if check_is_right_answer(quiz_data, user_question, user_answer):
-        update.message.reply_text(text="Правильный ответ!", reply_markup=reply_markup)
+    if check_is_right_answer(QUIZ_DATA, user_question, user_answer):
+        update.message.reply_text(text="Правильный ответ!", reply_markup=REPLY_MARKUP)
     else:
-        update.message.reply_text(text="Неправильный ответ!", reply_markup=reply_markup)
+        update.message.reply_text(text="Неправильный ответ!", reply_markup=REPLY_MARKUP)
     return States.QUESTION
 
 
 def handle_kapitulation(bot, update):
-    user_question = redis_db.get(update.message.chat_id)
-    right_answer = quiz_data.get(user_question)
-    update.message.reply_text(text=right_answer, reply_markup=reply_markup)
+    user_question = REDIS_DB.get(update.message.chat_id)
+    right_answer = QUIZ_DATA.get(user_question)
+    update.message.reply_text(text=right_answer, reply_markup=REPLY_MARKUP)
     return States.QUESTION
 
 
