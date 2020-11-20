@@ -1,6 +1,7 @@
 import os
 import random
 import vk_api
+import json
 from vk_api.longpoll import VkLongPoll, VkEventType
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 from quiz_helper import get_quiz_data, check_is_right_answer
@@ -9,8 +10,6 @@ from redis_helper import RedisHelper
 REDIS_DB = RedisHelper().connection
 
 DB_USER_PREFIX = "vk-"
-
-QUIZ_DATA = get_quiz_data()
 
 
 def echo(event, vk_api):
@@ -23,8 +22,9 @@ def echo(event, vk_api):
                 random_id=random.randint(1, 1000)
             )
         elif event.text == "Сдаться":
-            user_question = REDIS_DB.get(event.user_id)
-            right_answer = QUIZ_DATA.get(user_question)
+            db_quiz_data = json.loads(REDIS_DB.get(f"{DB_USER_PREFIX}{event.user_id}"))
+            for item in db_quiz_data.items():
+                _, right_answer = item
             vk_api.messages.send(
                 user_id=event.user_id,
                 message=right_answer,
@@ -32,18 +32,21 @@ def echo(event, vk_api):
                 random_id=random.randint(1, 1000)
             )
         elif event.text == "Новый вопрос":
-            question = random.choice(list(QUIZ_DATA.keys()))
-            REDIS_DB.set(f"{DB_USER_PREFIX}{event.user_id}", question)
+            question, answer = random.choice(list(get_quiz_data().items()))
+            REDIS_DB.set(f"{DB_USER_PREFIX}{event.user_id}", json.dumps({question: answer}))
             vk_api.messages.send(
                 user_id=event.user_id,
                 message=question,
                 keyboard=keyboard.get_keyboard(),
                 random_id=random.randint(1, 1000)
             )
+        # handle solution attempt
         else:
-            user_question = REDIS_DB.get(event.user_id)
+            db_quiz_data = json.loads(REDIS_DB.get(f"{DB_USER_PREFIX}{event.user_id}"))
+            for item in db_quiz_data.items():
+                _, right_answer = item
             user_answer = event.text
-            if check_is_right_answer(QUIZ_DATA, user_question, user_answer):
+            if check_is_right_answer(user_answer, right_answer):
                 vk_api.messages.send(
                     user_id=event.user_id,
                     message="Правильный ответ!",

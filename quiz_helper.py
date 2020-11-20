@@ -2,7 +2,7 @@ import os
 import re
 
 
-def get_quiz_data():
+def get_quiz_data() -> dict:
     files_data = ""
     for dirpath, dirnames, files in os.walk('questions'):
         for file_name in files:
@@ -23,9 +23,8 @@ def get_quiz_data():
     return quiz_data
 
 
-def check_is_right_answer(qna, user_question, user_answer):
+def check_is_right_answer(right_answer: str, user_answer: str) -> bool:
     user_answer = user_answer.lower().strip('.')
-    right_answer = qna.get(user_question)
     right_answer = re.split(r'\.|\(|\[', right_answer)
     right_answer = right_answer[0].lower().strip()
     return user_answer == right_answer

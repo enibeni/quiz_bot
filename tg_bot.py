@@ -1,4 +1,5 @@
 import os
+import json
 from enum import Enum
 from random import choice
 from telegram import ReplyKeyboardMarkup
@@ -10,8 +11,6 @@ REPLY_MARKUP = ReplyKeyboardMarkup(
     [['Новый вопрос', 'Сдаться'],
      ['Мой счет']]
 )
-
-QUIZ_DATA = get_quiz_data()
 
 REDIS_DB = RedisHelper().connection
 
@@ -30,16 +29,18 @@ def start(bot, update):
 
 
 def handle_new_question_request(bot, update):
-    question = choice(list(QUIZ_DATA.keys()))
-    REDIS_DB.set(f"{DB_USER_PREFIX}{update.message.chat_id}", question)
+    question, answer = choice(list(get_quiz_data().items()))
+    REDIS_DB.set(f"{DB_USER_PREFIX}{update.message.chat_id}", json.dumps({question: answer}))
     update.message.reply_text(text=question, reply_markup=REPLY_MARKUP)
     return States.ANSWER
 
 
 def handle_solution_attempt(bot, update):
-    user_question = REDIS_DB.get(update.message.chat_id)
+    db_quiz_data = json.loads(REDIS_DB.get(f"{DB_USER_PREFIX}{update.message.chat_id}"))
+    for item in db_quiz_data.items():
+        _, right_answer = item
     user_answer = update.message.text
-    if check_is_right_answer(QUIZ_DATA, user_question, user_answer):
+    if check_is_right_answer(right_answer, user_answer):
         update.message.reply_text(text="Правильный ответ!", reply_markup=REPLY_MARKUP)
     else:
         update.message.reply_text(text="Неправильный ответ!", reply_markup=REPLY_MARKUP)
@@ -47,8 +48,9 @@ def handle_solution_attempt(bot, update):
 
 
 def handle_kapitulation(bot, update):
-    user_question = REDIS_DB.get(update.message.chat_id)
-    right_answer = QUIZ_DATA.get(user_question)
+    db_quiz_data = json.loads(REDIS_DB.get(f"{DB_USER_PREFIX}{update.message.chat_id}"))
+    for item in db_quiz_data.items():
+        _, right_answer = item
     update.message.reply_text(text=right_answer, reply_markup=REPLY_MARKUP)
     return States.QUESTION
 
