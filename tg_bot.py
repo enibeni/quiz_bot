@@ -2,6 +2,7 @@ import os
 import json
 from enum import Enum
 from random import choice
+from dotenv import load_dotenv
 from telegram import ReplyKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, RegexHandler
 from quiz_helper import get_quiz_data, check_is_right_answer
@@ -12,9 +13,9 @@ REPLY_MARKUP = ReplyKeyboardMarkup(
      ['Мой счет']]
 )
 
-REDIS_DB = RedisHelper().connection
-
 DB_USER_PREFIX = "tg-"
+
+QUIZ_DATA = get_quiz_data()
 
 
 class States(Enum):
@@ -29,7 +30,7 @@ def start(bot, update):
 
 
 def handle_new_question_request(bot, update):
-    question, answer = choice(list(get_quiz_data().items()))
+    question, answer = choice(list(QUIZ_DATA.items()))
     REDIS_DB.set(f"{DB_USER_PREFIX}{update.message.chat_id}", json.dumps({question: answer}))
     update.message.reply_text(text=question, reply_markup=REPLY_MARKUP)
     return States.ANSWER
@@ -56,6 +57,10 @@ def handle_kapitulation(bot, update):
 
 
 def main():
+    load_dotenv()
+    global REDIS_DB
+    REDIS_DB = RedisHelper().connection
+
     updater = Updater(os.getenv("TG_TOKEN_QUIZ_BOT"))
     dp = updater.dispatcher
     conv_handler = ConversationHandler(

@@ -2,17 +2,16 @@ import os
 import random
 import vk_api
 import json
+from dotenv import load_dotenv
 from vk_api.longpoll import VkLongPoll, VkEventType
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
 from quiz_helper import get_quiz_data, check_is_right_answer
 from redis_helper import RedisHelper
 
-REDIS_DB = RedisHelper().connection
-
 DB_USER_PREFIX = "vk-"
 
 
-def echo(event, vk_api):
+def handle_new_message(event, vk_api):
     if event.type == VkEventType.MESSAGE_NEW and event.to_me:
         if event.text == "Начать":
             vk_api.messages.send(
@@ -22,7 +21,7 @@ def echo(event, vk_api):
                 random_id=random.randint(1, 1000)
             )
         elif event.text == "Сдаться":
-            db_quiz_data = json.loads(REDIS_DB.get(f"{DB_USER_PREFIX}{event.user_id}"))
+            db_quiz_data = json.loads(redis_db.get(f"{DB_USER_PREFIX}{event.user_id}"))
             for item in db_quiz_data.items():
                 _, right_answer = item
             vk_api.messages.send(
@@ -32,8 +31,8 @@ def echo(event, vk_api):
                 random_id=random.randint(1, 1000)
             )
         elif event.text == "Новый вопрос":
-            question, answer = random.choice(list(get_quiz_data().items()))
-            REDIS_DB.set(f"{DB_USER_PREFIX}{event.user_id}", json.dumps({question: answer}))
+            question, answer = random.choice(list(quiz_data.items()))
+            redis_db.set(f"{DB_USER_PREFIX}{event.user_id}", json.dumps({question: answer}))
             vk_api.messages.send(
                 user_id=event.user_id,
                 message=question,
@@ -42,7 +41,7 @@ def echo(event, vk_api):
             )
         # handle solution attempt
         else:
-            db_quiz_data = json.loads(REDIS_DB.get(f"{DB_USER_PREFIX}{event.user_id}"))
+            db_quiz_data = json.loads(redis_db.get(f"{DB_USER_PREFIX}{event.user_id}"))
             for item in db_quiz_data.items():
                 _, right_answer = item
             user_answer = event.text
@@ -63,6 +62,10 @@ def echo(event, vk_api):
 
 
 if __name__ == "__main__":
+    load_dotenv()
+    redis_db = RedisHelper().connection
+
+    quiz_data = get_quiz_data()
 
     vk_session = vk_api.VkApi(token=os.getenv("VK_TOKEN_QUIZ_BOT"))
     vk_api = vk_session.get_api()
@@ -78,4 +81,4 @@ if __name__ == "__main__":
     longpoll = VkLongPoll(vk_session)
     for event in longpoll.listen():
         if event.type == VkEventType.MESSAGE_NEW and event.to_me:
-            echo(event, vk_api)
+            handle_new_message(event, vk_api)
